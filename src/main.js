@@ -382,7 +382,7 @@ ${leaderboardString}
     imaGen = parseResponse(result)
     if (imaGen) {
         image = await create_image(imaGen);
-        const media = await MessageMedia.fromUrl(image);
+        const media = await MessageMedia.fromUrl(image, { unsafeMime: true });
         await message.reply(media, null, { caption: "🌀 WhatsGPT: " + result });
         // await message.reply("🌀 WhatsGPT: " + result + `\n\n🖼️ 1 image attached: ${image}`)
         messageHistory.push({"role": "model", "parts": [{ text: result + "\n\n(🖼️ 1 image attached)"}]});
