@@ -1,0 +1,9 @@
+services:
+  whatsgpt:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./authentication:/app/authentication
+      - ./messageHistories.json:/app/messageHistories.json
+    restart: unless-stopped

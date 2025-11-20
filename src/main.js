@@ -1,6 +1,6 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { GoogleGenAI, Type, createUserContent, createPartFromBase64 } = require("@google/genai");
+const { GoogleGenAI, Type } = require("@google/genai");
 const { Together } = require("together-ai");
 const fs = require('fs');
 const { send } = require('process');
@@ -11,7 +11,12 @@ console.log("🌀 Initialising...")
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: "authentication"
-    })
+    }),
+    puppeteer: {
+        args: [
+            '--no-sandbox'
+        ]
+    }
 });
 
 
@@ -95,32 +100,17 @@ const generateImageFunction = {
 // TODO: Refactor to use tool-calling instead of manually parsing response with regex.
 
 async function sendAIMessage(contents) {
-    return await ai.models.generateContent({
+    const completion =await ai.models.generateContent({
         model,
         contents: contents,
         config: {
             systemInstruction,
             // tools: { functionDeclarations: [ generateImageFunction ] }
         },
-    })
+    });
+    console.log(completion.text);
+    return completion.text;
 }
-
-client.once('ready', async () => {
-    console.log('Client is ready!');
-    /*
-    const chats = await client.getChats();
-    chats.forEach(element => {
-        console.log(element.name);
-        console.log('-- ' + element.id._serialized)
-    })
-    */
-    const WhatsGPT = await find_chat("WhatsGPT");
-    console.log(WhatsGPT);
-    await client.sendMessage(WhatsGPT, `🌀 WhatsGPT: ✅🗒️ Loaded message history from file (${fileSizeInAppropriateUnits} ${unit}).`)
-    res = (await sendAIMessage("Respond with a greeting to everyone.")).response.text
-    await client.sendMessage(WhatsGPT, `🌀 WhatsGPT: ${res}`);
-    console.log("Messages Sent");
-});
 
 async function find_chat(name) {
     const chats = await client.getChats();
@@ -136,8 +126,8 @@ client.on('qr', (qr) => {
     qrcode.generate(qr, {small: true});
 });
 
-let fileSizeInAppropriateUnits;
-let unit;
+let fileSizeInAppropriateUnits = null;
+let unit = null;
 
 try {
     const data = fs.readFileSync('messageHistories.json', 'utf8');
@@ -165,6 +155,24 @@ try {
     messageHistories = {};
 }
 
+
+client.once('ready', async () => {
+    console.log('Client is ready!');
+    /*
+    const chats = await client.getChats();
+    chats.forEach(element => {
+        console.log(element.name);
+        console.log('-- ' + element.id._serialized)
+    })
+    */
+    const WhatsGPT = await find_chat("WhatsGPT");
+    console.log(WhatsGPT);
+    await client.sendMessage(WhatsGPT, `🌀 WhatsGPT: ✅🗒️ Loaded message history from file (${fileSizeInAppropriateUnits} ${unit}).`)
+    res = await sendAIMessage("Respond with a greeting to everyone.")
+    await client.sendMessage(WhatsGPT, `🌀 WhatsGPT: ${res}`);
+    console.log("Messages Sent");
+});
+
 async function getPerson(author) {
     try {
         const contact = await client.getContactById(author);
@@ -184,7 +192,6 @@ async function message_create(message) {
     }
     if (typeof(message.body) != "string") {
         message.body = message.caption || "<no text provided>";
-        return;
     }
     let overrideName = null;
     const WhatsGPT = await find_chat("WhatsGPT");
@@ -270,9 +277,9 @@ ${leaderboardString}
                 console.log(`Tried to run /pingall in ${JSON.stringify(group)}`)
                 await message.reply("🌀 WhatsGPT: ❌👥 This command must be run in a group.")
             } else {
-                group = await client.getChatById(chat.id._serialized);
+                group = await client.getChatById(group.id._serialized);
                 const mentions = group.participants.map(p => `${p.id.user}@c.us`);
-                await chat.sendMessage(message.body.substring("@everyone ".length), {
+                await group.sendMessage("🌀 WhatsGPT: [utils.ping] " + message.body.substring("@everyone ".length), {
                     mentions: mentions
                 });
             }
@@ -337,10 +344,20 @@ ${leaderboardString}
             return;
         }
         if (['image', 'audio', 'video'].includes(media.mimetype.split('/')[0])) {
-            const data = createUserContent([prompt, createPartFromBase64(media.data, media.mimetype)]);
+            const data = {
+                role: "user",
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: media.mimetype,
+                            data: media.data,
+                        }
+                    }
+                ]
+            };
             try {
                 result = await sendAIMessage([...messageHistory, data]);
-                result = result.text;
             } catch (error) {
                 if (error.status === 429) {
                     result = "❌🚧 Too Many Requests! Try again later.";
@@ -348,21 +365,20 @@ ${leaderboardString}
                     result = "🚧 Model overloaded!";
                 } else throw error;
             }
-            messageHistory.push({"role": "user", "parts": [data]})
+            messageHistory.push(data)
         } else {
             await message.reply("🌀 WhatsGPT: 📎 Sorry! I don't understand this file type.");
             return;
         }
     } else {
         try {
-            result = await sendAIMessage([...messageHistory, { 'role': user, parts: [prompt] }]);
-            result = result.text;
+            result = await sendAIMessage([...messageHistory, { 'role': 'user', parts: [{ text: prompt }] }]);
         } catch (error) {
             if (error.status === 429) {
                 result = "❌🚧 Too Many Requests! Try again later.";
             } else if (error.status >= 500) {
                 result = "🚧 Model overloaded!";
-            } // else throw error; // Less likely to be a prompt-related error.
+            } else throw error; // Less likely to be a prompt-related error.
         }
         messageHistory.push({"role": "user", "parts": [{ text: prompt}]})
     }

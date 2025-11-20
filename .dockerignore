@@ -1,0 +1,7 @@
+node_modules
+authentication
+.wwebjs_auth
+.wwebjs_cache
+.git
+.env
+messageHistories.json
