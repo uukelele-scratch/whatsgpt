@@ -29,7 +29,7 @@ async function create_image(prompt) {
         prompt: prompt,
         width: 1792,
         height: 1792,
-        steps: 10,
+        steps: 4,
         n: 1,
     });
     return response.data[0].url;
