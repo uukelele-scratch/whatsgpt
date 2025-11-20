@@ -285,13 +285,6 @@ ${leaderboardString}
             }
             return
         }
-        if (message.body === "/testMedia") {
-            const media = MessageMedia.fromUrl("https://fastly.picsum.photos/id/549/512/512.jpg?hmac=CjIum0GWJ6TDGW6pbkTY_g1pZX14rtV0dKITUhpH_js", { unsafeMime: true });
-            console.log(JSON.stringify(media));
-            res = await message.reply(media);
-            console.log(JSON.stringify(res));
-            return;
-        }
         if (message.body.startsWith("//")) {
             return;
         }
@@ -389,9 +382,9 @@ ${leaderboardString}
     imaGen = parseResponse(result)
     if (imaGen) {
         image = await create_image(imaGen);
-        // const media = MessageMedia.fromUrl(image);
-        // await message.reply(media, null, { caption: result });
-        await message.reply("🌀 WhatsGPT: " + result + `\n\n🖼️ 1 image attached: ${image}`)
+        const media = await MessageMedia.fromUrl(image);
+        await message.reply(media, null, { caption: "🌀 WhatsGPT: " + result });
+        // await message.reply("🌀 WhatsGPT: " + result + `\n\n🖼️ 1 image attached: ${image}`)
         messageHistory.push({"role": "model", "parts": [{ text: result + "\n\n(🖼️ 1 image attached)"}]});
     } else {
         await message.reply("🌀 WhatsGPT: " + result);
