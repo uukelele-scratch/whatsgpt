@@ -264,14 +264,15 @@ ${leaderboardString}
     }
 
     if (message.fromMe) {
-        if (message.body.toLowerCase() === "/pingall") {
+        if (message.body.toLowerCase().startsWith("@everyone")) {
             group = await message.getChat();
             if (!group.isGroup) {
                 console.log(`Tried to run /pingall in ${JSON.stringify(group)}`)
                 await message.reply("🌀 WhatsGPT: ❌👥 This command must be run in a group.")
             } else {
-                const mentions = group.participants.map(p => p.id);
-                await chat.sendMessage(`Pinging @everyone...\n\n ${mentions.map(id => `@${id.user}`).join(', ')}`, {
+                group = await client.getChatById(chat.id._serialized);
+                const mentions = group.participants.map(p => `${p.id.user}@c.us`);
+                await chat.sendMessage(message.body.substring("@everyone ".length), {
                     mentions: mentions
                 });
             }
